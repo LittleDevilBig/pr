@@ -1,0 +1,108 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+data_1 = np.array([[1.58, 2.32, -5.8], [0.67, 1.58, -4.78], [1.04, 1.01, -3.63],
+                   [-1.49, 2.18, -3.39], [-0.41, 1.21, -4.73], [1.39, 3.16, 2.87],
+                   [1.20, 1.40, -1.89], [-0.92, 1.44, -3.22], [0.45, 1.33, -4.38],
+                   [-0.76, 0.84, -1.96]])
+label_1 = np.zeros_like(data_1)
+label_1[:, 0] = 1
+data_2 = np.array([[0.21, 0.03, -2.21], [0.37, 0.28, -1.8], [0.18, 1.22, 0.16],
+                   [-0.24, 0.93, -1.01], [-1.18, 0.39, -0.39], [0.74, 0.96, -1.16],
+                   [-0.38, 1.94, -0.48], [0.02, 0.72, -0.17], [0.44, 1.31, -0.14],
+                   [0.46, 1.49, 0.68]])
+label_2 = np.zeros_like(data_2)
+label_2[:, 1] = 1
+data_3 = np.array([[-1.54, 1.17, 0.64], [5.41, 3.45, -1.33], [1.55, 0.99, 2.69],
+                   [1.86, 3.19, 1.51], [1.68, 1.79, -0.87], [3.51, -0.22, -1.39],
+                   [1.40, -0.44, -0.92], [0.44, 0.83, 1.97], [0.25, 0.68, -0.99],
+                   [0.66, -0.45, 0.08]])
+label_3 = np.zeros_like(data_3)
+label_3[:, 2] = 1
+
+data = np.concatenate([data_1, data_2, data_3], axis=0)
+label = np.concatenate([label_1, label_2, label_3], axis=0)
+
+
+def sigmoid(x):
+    return 1/(1+np.exp(-x))
+
+
+def tanh(x):
+    return (np.exp(x)-np.exp(-x)) / (np.exp(x)+np.exp(-x))
+
+
+class NN:
+    def __init__(self) -> None:
+        self.input = 3
+        self.hidden = 4
+        self.output = 3
+        self.lr = 0.01
+        self.mode = 'batch'
+        self.steps = 5000
+        self.w1 = np.random.random((self.input, self.hidden))
+        self.w2 = np.random.random((self.hidden, self.output))
+
+    def forward(self, input_var):
+        hidden_var = tanh(np.dot(input_var, self.w1))
+        out_var = sigmoid(np.dot(hidden_var, self.w2))
+        return hidden_var, out_var
+
+    def backward(self, input_var, hidden_var, out_var, target):
+        n = target.shape[0]
+        loss = np.sum((out_var-target)**2)/n
+        delta2 = (out_var-target)*out_var*(1-out_var)
+        deltaw2 = self.lr*np.dot(hidden_var.T, delta2)/n
+        delta1 = np.dot(delta2, self.w2.T)*(1-hidden_var**2)
+        deltaw1 = self.lr*np.dot(input_var.T, delta1)/n
+        return deltaw1, deltaw2, loss
+
+    def train(self, input, target):
+        Loss = []
+        for i in range(self.steps):
+            if(self.mode == 'batch'):
+                input_var = input
+                target_var = target
+            else:
+                n, _ = input.shape
+                index = np.random.randint(n)
+                input_var = input[index].reshape(1, 3)
+                target_var = target[index].reshape(1, 3)
+            hidden_var, output = self.forward(input_var)
+            delta_w1, delta_w2, loss = self.backward(
+                input_var, hidden_var, output, target_var)
+            self.w1 -= delta_w1
+            self.w2 -= delta_w2
+            Loss.append(loss)
+        Loss = np.array(Loss)
+        return Loss
+
+    def reset(self):
+        self.w1 = np.random.random((self.input, self.hidden))
+        self.w2 = np.random.random((self.hidden, self.output))
+
+
+if __name__ == '__main__':
+    nn=NN()
+    #nn.mode = 'single'
+    Loss = []
+    hidden=[3,4, 8, 10, 15]
+    #lr=[1,0.1,0.01,0.005]
+
+    for i in range(len(hidden)):
+        nn.hidden = hidden[i]
+        loss = nn.train(data, label)
+        Loss.append(loss)
+        nn.reset()
+    Loss = np.array(Loss)
+
+    for i in range(Loss.shape[0]):
+        plt.plot(Loss[i], label='hidden='+str(hidden[i]))
+    
+    #loss = nn.train(data, label)
+    #plt.plot(loss)
+    plt.xlabel('steps')
+    plt.ylabel('loss')
+    plt.title('Loss Curve')
+    plt.legend()
+    plt.show()
