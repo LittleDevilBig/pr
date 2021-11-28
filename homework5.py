@@ -42,7 +42,7 @@ class Classiier(object):
         return cov
 
     def get_eig(self,cov):
-        eig_val,eig_vec=np.linalg.eig(cov)
+        eig_val,eig_vec=np.linalg.eigh(cov)#实数
         w=eig_vec[:,:self.eig_num]
         return np.real(w)
 
