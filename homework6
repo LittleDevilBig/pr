@@ -1,0 +1,148 @@
+import numpy as np
+import matplotlib.pyplot as plt
+np.set_printoptions(precision=2)  # 输出的精度，即小数点后维数
+
+
+class kmeans(object):
+    def __init__(self):
+        sigma = np.array([[1, 0], [0, 1]])
+        mu = [np.array([1, -1]), np.array([5.5, -4.5]),
+              np.array([1, 4]), np.array([6, 4.5]), np.array([9, 0])]
+        data = []
+        mu_init = []
+        for i in range(5):
+            data.append(np.random.multivariate_normal(
+                mean=mu[i], cov=sigma, size=200))
+            mu_init.append(np.random.multivariate_normal(
+                mean=mu[i], cov=sigma, size=1))
+        self.data = np.stack(data, axis=0).reshape(-1, 2)  # 组合
+        self.mu = np.stack(mu_init, axis=0).reshape(-1, 2)
+        print(self.mu)
+        self.ground = mu
+
+    def cluster(self):
+        acc = 0
+        while True:
+            d = np.zeros([self.data.shape[0], self.mu.shape[0]])
+            mu = np.zeros_like(self.mu)
+            for i in range(d.shape[0]):
+                for j in range(d.shape[1]):
+                    d[i][j] = np.linalg.norm(self.data[i]-self.mu[j])
+            min_i = np.argmin(d, axis=1)
+            for j in range(d.shape[1]):
+                # 如果是j类算均值，中间返回ture/false，得到是true构成的矩阵
+                mu[j] = np.mean(self.data[min_i == j], axis=0)
+            if (self.mu == mu).all():
+                for j in range(self.mu.shape[0]):
+                    acc += np.sum(min_i[200*j:200*(j+1)] == j)
+                acc /= self.data.shape[0]
+                break
+            else:
+                self.mu = mu
+        return acc
+
+    def res(self):
+        acc = self.cluster()
+        error = np.linalg.norm(self.mu-self.ground)
+        return acc, self.mu, error
+
+
+class Spectral(object):
+    def __init__(self):
+        self.data = np.loadtxt('./raw_data.txt')
+        self.k = 10
+        self.sigma = 1
+
+    def lap(self):
+        d = np.zeros([self.data.shape[0], self.data.shape[0]])
+        w = np.zeros([self.data.shape[0], self.data.shape[0]])
+        t = np.zeros([self.data.shape[0], self.data.shape[0]])
+        for i in range(w.shape[0]):
+            for j in range(w.shape[1]):
+                if i != j:
+                    w[i, j] = np.exp(-np.sum((self.data[i] -
+                                             self.data[j])**2)/(2*self.sigma**2))
+                else:
+                    w[i, j] = 0
+        for i in range(w.shape[0]):
+            kmax = np.sort(w[i])[-self.k]
+            w[i, w[i, :] < kmax] = 0
+        w = (w+w.T)/2
+        for i in range(w.shape[0]):
+            d[i, i] = np.sum(w[i, :])
+            t[i, i] = d[i, i]**-0.5
+        l = t.dot(d-w).dot(t)
+        return l
+
+    def eigu(self, l):
+        U, S, V = np.linalg.svd(l)
+        u = np.real(U[:, -self.k:])  # k个小的
+        for i in range(u.shape[0]):
+            u[i] /= np.linalg.norm(u[i])
+        return u
+
+    def cluster(self):
+        l = self.lap()
+        u = self.eigu(l)
+        mu_old = np.zeros([2, u.shape[1]])
+        mu_old[0] = np.mean(u[:100], axis=0)
+        mu_old[1] = np.mean(u[100:], axis=0)
+        acc = 0
+        while True:
+            d = np.zeros([u.shape[0], 2])
+            mu_new = np.zeros([2, u.shape[1]])
+            for i in range(d.shape[0]):
+                for j in range(d.shape[1]):
+                    d[i, j] = np.linalg.norm(u[i] - mu_old[j])
+            min_i = np.argmin(d, axis=1)
+            for j in range(d.shape[1]):
+                mu_new[j] = np.mean(u[min_i == j], axis=0)
+            if(mu_new == mu_old).all():
+                acc = (np.sum(min_i[:100] == 0) +
+                       np.sum(min_i[100:] == 1)) / u.shape[0]
+                break
+            else:
+                mu_old = mu_new
+        return acc
+
+    def k_plot(self):
+        k_list = []
+        acc_list = []
+        for k in range(10, 100, 10):
+            self.k = k
+            accuracy = self.cluster()
+            k_list.append(k)
+            acc_list.append(accuracy)
+        plt.plot(k_list, acc_list)
+        plt.xlabel('k')
+        plt.ylabel('accuracy')
+        plt.legend(['sigma=1'])
+        plt.title('accuracy-k curve')
+        plt.show()
+
+    def sigma_plot(self):
+        sigma_list = []
+        acc_list = []
+        for sigma in range(1, 10, 1):
+            self.sigma = sigma
+            accuracy = self.cluster()
+            sigma_list.append(sigma)
+            acc_list.append(accuracy)
+        plt.plot(sigma_list, acc_list)
+        plt.xlabel('sigma')
+        plt.ylabel('accuracy')
+        plt.legend(['k=10'])
+        plt.title('accuracy-sigma curve')
+        plt.show()
+
+
+if __name__ == '__main__':
+    # solution1 = kmeans()
+    # accuracy, mu, error = solution1.res()
+    # print(accuracy)
+    # print(mu)
+    # print(error)
+
+    solution2 = Spectral()
+    solution2.k_plot()
+    solution2.sigma_plot()
